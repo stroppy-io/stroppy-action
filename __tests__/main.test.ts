@@ -1,62 +1,137 @@
-/**
- * Unit tests for the action's main functionality, src/main.ts
- *
- * To mock dependencies in ESM, you can create fixtures that export mock
- * functions and objects. For example, the core module is mocked in this test,
- * so that the actual '@actions/core' module is not imported.
- */
 import { jest } from '@jest/globals'
 import * as core from '../__fixtures__/core.js'
-import { wait } from '../__fixtures__/wait.js'
 
-// Mocks should be declared before the module being tested is imported.
+const mockInstallStroppy = jest.fn<() => Promise<string>>()
+const mockRunStroppy =
+  jest.fn<() => Promise<{ exitCode: number; resultsFile: string }>>()
+const mockCollectResults = jest.fn<() => Promise<void>>()
+
 jest.unstable_mockModule('@actions/core', () => core)
-jest.unstable_mockModule('../src/wait.js', () => ({ wait }))
+jest.unstable_mockModule('../src/install.js', () => ({
+  installStroppy: mockInstallStroppy
+}))
+jest.unstable_mockModule('../src/run.js', () => ({
+  runStroppy: mockRunStroppy,
+  VALID_PRESETS: ['tpcb', 'tpcc', 'tpcds', 'simple', 'execute_sql']
+}))
+jest.unstable_mockModule('../src/results.js', () => ({
+  collectResults: mockCollectResults
+}))
 
-// The module being tested should be imported dynamically. This ensures that the
-// mocks are used in place of any actual dependencies.
 const { run } = await import('../src/main.js')
 
 describe('main.ts', () => {
   beforeEach(() => {
-    // Set the action's inputs as return values from core.getInput().
-    core.getInput.mockImplementation(() => '500')
+    core.group.mockImplementation(
+      async <T>(_name: string, fn: () => Promise<T>): Promise<T> => fn()
+    )
 
-    // Mock the wait function so that it does not actually wait.
-    wait.mockImplementation(() => Promise.resolve('done!'))
+    core.getInput.mockImplementation((name: string) => {
+      const inputs: Record<string, string> = {
+        version: 'latest',
+        script: 'bench.ts',
+        'sql-file': '',
+        preset: '',
+        'driver-url': 'postgres://localhost/test',
+        'scale-factor': '',
+        duration: '5m',
+        vus: '2',
+        'log-level': 'info',
+        'k6-args': '',
+        'artifact-name': 'stroppy-results'
+      }
+      return inputs[name] ?? ''
+    })
+
+    mockInstallStroppy.mockResolvedValue('v1.0.0')
+    mockRunStroppy.mockResolvedValue({
+      exitCode: 0,
+      resultsFile: '/tmp/r.json'
+    })
+    mockCollectResults.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
     jest.resetAllMocks()
   })
 
-  it('Sets the time output', async () => {
+  it('runs full pipeline successfully', async () => {
     await run()
 
-    // Verify the time output was set.
-    expect(core.setOutput).toHaveBeenNthCalledWith(
-      1,
-      'time',
-      // Simple regex to match a time string in the format HH:MM:SS.
-      expect.stringMatching(/^\d{2}:\d{2}:\d{2}/)
+    expect(mockInstallStroppy).toHaveBeenCalledWith('latest')
+    expect(mockRunStroppy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        script: 'bench.ts',
+        driverUrl: 'postgres://localhost/test'
+      })
+    )
+    expect(mockCollectResults).toHaveBeenCalled()
+    expect(core.setFailed).not.toHaveBeenCalled()
+  })
+
+  it('fails when neither script nor preset provided', async () => {
+    core.getInput.mockImplementation((name: string) => {
+      if (name === 'script') return ''
+      if (name === 'preset') return ''
+      if (name === 'driver-url') return 'postgres://localhost/test'
+      if (name === 'artifact-name') return 'stroppy-results'
+      return ''
+    })
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('Either "script" or "preset"')
     )
   })
 
-  it('Sets a failed status', async () => {
-    // Clear the getInput mock and return an invalid value.
-    core.getInput.mockClear().mockReturnValueOnce('this is not a number')
-
-    // Clear the wait mock and return a rejected promise.
-    wait
-      .mockClear()
-      .mockRejectedValueOnce(new Error('milliseconds is not a number'))
+  it('fails when both script and preset provided', async () => {
+    core.getInput.mockImplementation((name: string) => {
+      if (name === 'script') return 'bench.ts'
+      if (name === 'preset') return 'tpcb'
+      if (name === 'driver-url') return 'postgres://localhost/test'
+      if (name === 'artifact-name') return 'stroppy-results'
+      return ''
+    })
 
     await run()
 
-    // Verify that the action was marked as failed.
-    expect(core.setFailed).toHaveBeenNthCalledWith(
-      1,
-      'milliseconds is not a number'
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('mutually exclusive')
     )
+  })
+
+  it('fails when invalid preset provided', async () => {
+    core.getInput.mockImplementation((name: string) => {
+      if (name === 'preset') return 'invalid-preset'
+      if (name === 'script') return ''
+      if (name === 'driver-url') return 'postgres://localhost/test'
+      if (name === 'artifact-name') return 'stroppy-results'
+      return ''
+    })
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid preset')
+    )
+  })
+
+  it('sets failed when benchmark exits non-zero', async () => {
+    mockRunStroppy.mockResolvedValue({ exitCode: 1, resultsFile: '' })
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('exited with code 1')
+    )
+  })
+
+  it('catches and reports errors', async () => {
+    mockInstallStroppy.mockRejectedValue(new Error('download failed'))
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith('download failed')
   })
 })

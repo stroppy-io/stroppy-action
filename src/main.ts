@@ -1,27 +1,62 @@
 import * as core from '@actions/core'
-import { wait } from './wait.js'
+import { installStroppy } from './install.js'
+import { runStroppy, VALID_PRESETS } from './run.js'
+import type { RunConfig } from './run.js'
+import { collectResults } from './results.js'
 
-/**
- * The main function for the action.
- *
- * @returns Resolves when the action is complete.
- */
 export async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
+    const version = core.getInput('version')
+    const script = core.getInput('script')
+    const sqlFile = core.getInput('sql-file')
+    const preset = core.getInput('preset')
+    const driverUrl = core.getInput('driver-url', { required: true })
+    const scaleFactor = core.getInput('scale-factor')
+    const duration = core.getInput('duration')
+    const vus = core.getInput('vus')
+    const logLevel = core.getInput('log-level')
+    const k6Args = core.getInput('k6-args')
+    const artifactName = core.getInput('artifact-name')
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    if (!script && !preset) {
+      throw new Error('Either "script" or "preset" input must be provided')
+    }
+    if (script && preset) {
+      throw new Error('"script" and "preset" are mutually exclusive')
+    }
+    if (
+      preset &&
+      !VALID_PRESETS.includes(preset as (typeof VALID_PRESETS)[number])
+    ) {
+      throw new Error(
+        `Invalid preset "${preset}". Valid presets: ${VALID_PRESETS.join(', ')}`
+      )
+    }
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    await core.group('Install stroppy', () => installStroppy(version))
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    const config: RunConfig = {
+      script,
+      sqlFile,
+      preset,
+      driverUrl,
+      scaleFactor,
+      duration,
+      vus,
+      logLevel,
+      k6Args
+    }
+
+    const result = await core.group('Run benchmark', () => runStroppy(config))
+
+    await core.group('Collect results', () =>
+      collectResults(result, artifactName)
+    )
+
+    if (result.exitCode !== 0) {
+      core.setFailed(`Benchmark exited with code ${result.exitCode}`)
+    }
   } catch (error) {
-    // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
