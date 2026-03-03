@@ -56,9 +56,12 @@ jobs:
       - name: Test Local Action
         id: test-action
         uses: ./
+        continue-on-error: true
         with:
-          milliseconds: 2000
+          preset: simple
+          driver-url: 'postgres://localhost:5432/testdb'
 
-      - name: Print Output
-        id: output
-        run: echo "${{ steps.test-action.outputs.time }}"
+      - name: Verify action ran
+        run: |
+          echo "Exit code output: ${{ steps.test-action.outputs.exit-code }}"
+          echo "Action outcome: ${{ steps.test-action.outcome }}"

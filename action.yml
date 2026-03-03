@@ -1,23 +1,69 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
+name: Stroppy Benchmark Action
+description: Run Stroppy database benchmarks via GitHub Actions
+author: Stroppy-IO
 
-# Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: heart
-  color: red
+  icon: activity
+  color: blue
 
-# Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
+  version:
+    description: >-
+      Stroppy release tag to install (e.g. v1.2.3). Use "latest" to fetch the
+      most recent release.
+    required: false
+    default: 'latest'
+  script:
+    description: >-
+      Path to a custom .ts benchmark script. Mutually exclusive with "preset".
+    required: false
+    default: ''
+  sql-file:
+    description: >-
+      Path to a .sql file (only used with "script").
+    required: false
+    default: ''
+  preset:
+    description: >-
+      Built-in benchmark preset name. One of: tpcb, tpcc, tpcds, simple,
+      execute_sql. Mutually exclusive with "script".
+    required: false
+    default: ''
+  driver-url:
+    description: Database connection URL
     required: true
-    default: '1000'
+  scale-factor:
+    description: Scale factor for the benchmark workload (SCALE_FACTOR)
+    required: false
+    default: ''
+  duration:
+    description: 'Test duration (e.g. 1h, 30m)'
+    required: false
+    default: ''
+  vus:
+    description: Number of virtual users
+    required: false
+    default: ''
+  log-level:
+    description: 'Log level: debug, info, warn, error'
+    required: false
+    default: 'info'
+  k6-args:
+    description: Additional k6 CLI arguments
+    required: false
+    default: ''
+  artifact-name:
+    description: Name for the uploaded results artifact
+    required: false
+    default: 'stroppy-results'
 
-# Define your outputs here.
 outputs:
-  time:
-    description: Your output description here
+  exit-code:
+    description: Exit code from the stroppy run
+  results-file:
+    description: Path to the JSON results file
+  artifact-id:
+    description: ID of the uploaded artifact
 
 runs:
   using: node24
