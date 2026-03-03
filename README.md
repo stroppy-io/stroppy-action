@@ -3,9 +3,9 @@
 GitHub Action for running [Stroppy](https://github.com/stroppy-io/stroppy)
 database benchmarks in CI/CD pipelines.
 
-Stroppy is a CLI tool built on k6/xk6 for database load testing. This action
-installs Stroppy, runs benchmarks (custom scripts or built-in presets), and
-uploads results as workflow artifacts.
+Stroppy is a command-line tool built on k6/xk6 for database load testing. This
+action installs Stroppy, runs benchmarks (custom scripts or built-in presets),
+and uploads results as workflow artifacts.
 
 ## Usage
 
@@ -85,10 +85,10 @@ Either `script` or `preset` must be provided (but not both).
 
 1. **Install** — Downloads the Stroppy binary from GitHub Releases (with
    tool-cache for fast re-runs).
-2. **Run** — Executes the benchmark:
+1. **Run** — Executes the benchmark:
    - **Custom script**: `stroppy run <script> [sql] -- <k6-args>`
    - **Preset**: generates files via `stroppy gen`, then runs them.
-3. **Collect** — Sets outputs and uploads the JSON results file as a workflow
+1. **Collect** — Sets outputs and uploads the JSON results file as a workflow
    artifact.
 
 ## License
