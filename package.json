@@ -1,7 +1,7 @@
 {
   "name": "stroppy-action",
   "description": "GitHub Action for running Stroppy database benchmarks",
-  "version": "1.0.0",
+  "version": "v1.0.0",
   "author": "Stroppy-IO",
   "type": "module",
   "private": true,
