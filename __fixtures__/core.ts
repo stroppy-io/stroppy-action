@@ -17,3 +17,15 @@ export const group = jest
       return fn()
     }
   )
+
+const summaryMock = {
+  addHeading: jest.fn().mockReturnThis(),
+  addTable: jest.fn().mockReturnThis(),
+  addRaw: jest.fn().mockReturnThis(),
+  addCodeBlock: jest.fn().mockReturnThis(),
+  addSeparator: jest.fn().mockReturnThis(),
+  addBreak: jest.fn().mockReturnThis(),
+  write: jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined)
+}
+
+export const summary = summaryMock
