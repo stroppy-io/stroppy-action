@@ -26,29 +26,34 @@ describe('run.ts', () => {
   })
 
   describe('buildK6Args', () => {
-    it('builds args with all options', () => {
-      const args = buildK6Args('10', '30m', '--no-summary', '/tmp/results.json')
+    it('builds args with extra k6 args', () => {
+      const args = buildK6Args('--no-summary', '/tmp/results.json')
       expect(args).toEqual([
-        '--vus',
-        '10',
-        '--duration',
-        '30m',
-        '--out',
-        'json=/tmp/results.json',
+        '--summary-mode',
+        'full',
+        '--summary-export',
+        '/tmp/results.json',
         '--no-summary'
       ])
     })
 
     it('builds args with only results file', () => {
-      const args = buildK6Args('', '', '', '/tmp/results.json')
-      expect(args).toEqual(['--out', 'json=/tmp/results.json'])
+      const args = buildK6Args('', '/tmp/results.json')
+      expect(args).toEqual([
+        '--summary-mode',
+        'full',
+        '--summary-export',
+        '/tmp/results.json'
+      ])
     })
 
     it('splits k6Args by whitespace', () => {
-      const args = buildK6Args('', '', '--tag env=ci  --quiet', '/tmp/r.json')
+      const args = buildK6Args('--tag env=ci  --quiet', '/tmp/r.json')
       expect(args).toEqual([
-        '--out',
-        'json=/tmp/r.json',
+        '--summary-mode',
+        'full',
+        '--summary-export',
+        '/tmp/r.json',
         '--tag',
         'env=ci',
         '--quiet'
@@ -72,8 +77,9 @@ describe('run.ts', () => {
 
       expect(env.DRIVER_URL).toBe('postgres://localhost/test')
       expect(env.LOG_LEVEL).toBe('info')
-      expect(env.LOG_MODE).toBe('ci')
+      expect(env.LOG_MODE).toBe('development')
       expect(env.SCALE_FACTOR).toBeUndefined()
+      expect(env.VUS).toBeUndefined()
     })
 
     it('sets optional env vars when provided', () => {
@@ -84,13 +90,14 @@ describe('run.ts', () => {
         driverUrl: 'postgres://localhost/test',
         scaleFactor: '10',
         duration: '1h',
-        vus: '',
+        vus: '4',
         logLevel: 'debug',
         k6Args: ''
       })
 
       expect(env.SCALE_FACTOR).toBe('10')
       expect(env.DURATION).toBe('1h')
+      expect(env.VUS).toBe('4')
     })
   })
 

@@ -32,20 +32,16 @@ export interface RunResult {
 }
 
 export function buildK6Args(
-  vus: string,
-  duration: string,
   k6Args: string,
   resultsFile: string
 ): string[] {
-  const args: string[] = []
+  const args: string[] = [
+    '--summary-mode',
+    'full',
+    '--summary-export',
+    resultsFile
+  ]
 
-  if (vus) {
-    args.push('--vus', vus)
-  }
-  if (duration) {
-    args.push('--duration', duration)
-  }
-  args.push('--out', `json=${resultsFile}`)
   if (k6Args) {
     args.push(...k6Args.split(/\s+/).filter(Boolean))
   }
@@ -58,7 +54,7 @@ export function buildEnv(config: RunConfig): Record<string, string> {
     ...process.env,
     DRIVER_URL: config.driverUrl,
     LOG_LEVEL: config.logLevel,
-    LOG_MODE: 'ci'
+    LOG_MODE: 'development'
   }
 
   if (config.scaleFactor) {
@@ -67,18 +63,16 @@ export function buildEnv(config: RunConfig): Record<string, string> {
   if (config.duration) {
     env.DURATION = config.duration
   }
+  if (config.vus) {
+    env.VUS = config.vus
+  }
 
   return env
 }
 
 export async function runStroppy(config: RunConfig): Promise<RunResult> {
   const resultsFile = path.join(os.tmpdir(), 'stroppy-results.json')
-  const k6args = buildK6Args(
-    config.vus,
-    config.duration,
-    config.k6Args,
-    resultsFile
-  )
+  const k6args = buildK6Args(config.k6Args, resultsFile)
   const env = buildEnv(config)
 
   let exitCode: number
