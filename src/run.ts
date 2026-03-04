@@ -31,10 +31,7 @@ export interface RunResult {
   resultsFile: string
 }
 
-export function buildK6Args(
-  k6Args: string,
-  resultsFile: string
-): string[] {
+export function buildK6Args(k6Args: string, resultsFile: string): string[] {
   const args: string[] = [
     '--summary-mode',
     'full',

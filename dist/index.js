@@ -33055,15 +33055,13 @@ const VALID_PRESETS = [
     'simple',
     'execute_sql'
 ];
-function buildK6Args(vus, duration, k6Args, resultsFile) {
-    const args = [];
-    if (vus) {
-        args.push('--vus', vus);
-    }
-    if (duration) {
-        args.push('--duration', duration);
-    }
-    args.push('--out', `json=${resultsFile}`);
+function buildK6Args(k6Args, resultsFile) {
+    const args = [
+        '--summary-mode',
+        'full',
+        '--summary-export',
+        resultsFile
+    ];
     if (k6Args) {
         args.push(...k6Args.split(/\s+/).filter(Boolean));
     }
@@ -33074,7 +33072,7 @@ function buildEnv(config) {
         ...process.env,
         DRIVER_URL: config.driverUrl,
         LOG_LEVEL: config.logLevel,
-        LOG_MODE: 'ci'
+        LOG_MODE: 'development'
     };
     if (config.scaleFactor) {
         env.SCALE_FACTOR = config.scaleFactor;
@@ -33082,11 +33080,14 @@ function buildEnv(config) {
     if (config.duration) {
         env.DURATION = config.duration;
     }
+    if (config.vus) {
+        env.VUS = config.vus;
+    }
     return env;
 }
 async function runStroppy(config) {
     const resultsFile = path$2.join(os$1.tmpdir(), 'stroppy-results.json');
-    const k6args = buildK6Args(config.vus, config.duration, config.k6Args, resultsFile);
+    const k6args = buildK6Args(config.k6Args, resultsFile);
     const env = buildEnv(config);
     let exitCode;
     if (config.script) {
