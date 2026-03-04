@@ -33,7 +33,9 @@ export async function run(): Promise<void> {
       )
     }
 
-    await core.group('Install stroppy', () => installStroppy(version))
+    const resolvedVersion = await core.group('Install stroppy', () =>
+      installStroppy(version)
+    )
 
     const config: RunConfig = {
       script,
@@ -50,7 +52,7 @@ export async function run(): Promise<void> {
     const result = await core.group('Run benchmark', () => runStroppy(config))
 
     await core.group('Collect results', () =>
-      collectResults(result, artifactName)
+      collectResults(config, result, artifactName, resolvedVersion)
     )
 
     if (result.exitCode !== 0) {

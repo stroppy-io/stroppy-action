@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   test-typescript:
@@ -48,6 +49,22 @@ jobs:
     name: GitHub Actions Test
     runs-on: ubuntu-latest
 
+    env:
+      DURATION: 10s
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: stroppy
+          POSTGRES_PASSWORD: stroppy
+          POSTGRES_DB: stroppy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U stroppy -d stroppy_test"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+
     steps:
       - name: Checkout
         id: checkout
@@ -56,12 +73,26 @@ jobs:
       - name: Test Local Action
         id: test-action
         uses: ./
-        continue-on-error: true
         with:
-          preset: simple
-          driver-url: 'postgres://localhost:5432/testdb'
+          preset: tpcc
+          driver-url: 'postgres://stroppy:stroppy@localhost:5432/stroppy_test'
 
-      - name: Verify action ran
+      - name: Verify outputs
+        env:
+          EXIT_CODE: ${{ steps.test-action.outputs.exit-code }}
+          RESULTS_FILE: ${{ steps.test-action.outputs.results-file }}
+          ARTIFACT_ID: ${{ steps.test-action.outputs.artifact-id }}
         run: |
-          echo "Exit code output: ${{ steps.test-action.outputs.exit-code }}"
-          echo "Action outcome: ${{ steps.test-action.outcome }}"
+          echo "Exit code: ${EXIT_CODE}"
+          echo "Results file: ${RESULTS_FILE}"
+          echo "Artifact ID: ${ARTIFACT_ID}"
+
+          if [ "${EXIT_CODE}" != "0" ]; then
+            echo "::error::Benchmark exited with non-zero code"
+            exit 1
+          fi
+
+          if [ -z "${RESULTS_FILE}" ]; then
+            echo "::error::No results file produced"
+            exit 1
+          fi
