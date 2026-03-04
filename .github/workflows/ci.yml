@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   test-typescript:
@@ -95,3 +96,11 @@ jobs:
             echo "::error::No results file produced"
             exit 1
           fi
+
+      - name: Upload results JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-benchmark-results
+          path: ${{ steps.test-action.outputs.results-file }}
+          if-no-files-found: warn
