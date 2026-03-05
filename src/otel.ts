@@ -7,7 +7,7 @@ import * as exec from '@actions/exec'
 import * as tc from '@actions/tool-cache'
 
 const OTEL_TOOL = 'otelcol-contrib'
-const OTEL_VERSION = '0.123.0'
+const OTEL_VERSION = '0.147.0'
 const OTEL_RELEASES = 'open-telemetry/opentelemetry-collector-releases'
 
 export const OTEL_PORT = 4318

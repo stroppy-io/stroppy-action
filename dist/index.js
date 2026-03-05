@@ -33307,7 +33307,7 @@ async function installStroppy(version) {
 }
 
 const OTEL_TOOL = 'otelcol-contrib';
-const OTEL_VERSION = '0.123.0';
+const OTEL_VERSION = '0.147.0';
 const OTEL_RELEASES = 'open-telemetry/opentelemetry-collector-releases';
 const OTEL_PORT = 4318;
 function buildOtelConfig(metricsFile) {
