@@ -58,8 +58,8 @@ inputs:
     default: 'stroppy-results'
   metrics:
     description: >-
-      Enable OpenTelemetry metrics collection with time-series charts in the
-      job summary. Set to "false" to disable.
+      Enable OpenTelemetry metrics collection with time-series charts in the job
+      summary. Set to "false" to disable.
     required: false
     default: 'true'
 
