@@ -162,6 +162,9 @@ describe('results.ts', () => {
     const tmpFile = path.join(os.tmpdir(), 'test-summary-otel.json')
     fs.writeFileSync(tmpFile, '{"metrics": {}}')
 
+    const otelFile = path.join(os.tmpdir(), 'test-otel-metrics.json')
+    fs.writeFileSync(otelFile, '{}')
+
     mockUploadArtifact.mockResolvedValueOnce({ id: 10, size: 50 })
     mockParseOtelMetrics.mockReturnValue([
       {
@@ -182,13 +185,13 @@ describe('results.ts', () => {
       {
         exitCode: 0,
         resultsFile: tmpFile,
-        otelMetricsFile: '/tmp/otel-metrics.json'
+        otelMetricsFile: otelFile
       },
       'stroppy-results',
       'v1.0.0'
     )
 
-    expect(mockParseOtelMetrics).toHaveBeenCalledWith('/tmp/otel-metrics.json')
+    expect(mockParseOtelMetrics).toHaveBeenCalledWith(otelFile)
     expect(mockBuildMermaidChart).toHaveBeenCalled()
     expect(core.summary.addRaw).toHaveBeenCalledWith(
       expect.stringContaining('mermaid'),
@@ -196,6 +199,38 @@ describe('results.ts', () => {
     )
 
     fs.unlinkSync(tmpFile)
+    fs.unlinkSync(otelFile)
+  })
+
+  it('includes otel metrics file in artifact upload', async () => {
+    const tmpFile = path.join(os.tmpdir(), 'test-results-art.json')
+    fs.writeFileSync(tmpFile, '{}')
+
+    const otelFile = path.join(os.tmpdir(), 'test-otel-art.json')
+    fs.writeFileSync(otelFile, '{}')
+
+    mockUploadArtifact.mockResolvedValueOnce({ id: 99, size: 200 })
+    mockParseOtelMetrics.mockReturnValue([])
+
+    await collectResults(
+      { ...baseConfig, otel: true },
+      {
+        exitCode: 0,
+        resultsFile: tmpFile,
+        otelMetricsFile: otelFile
+      },
+      'stroppy-results',
+      'v1.0.0'
+    )
+
+    expect(mockUploadArtifact).toHaveBeenCalledWith(
+      'stroppy-results',
+      expect.arrayContaining([tmpFile, otelFile]),
+      expect.any(String)
+    )
+
+    fs.unlinkSync(tmpFile)
+    fs.unlinkSync(otelFile)
   })
 
   it('masks password in driver URL summary', async () => {

@@ -43,9 +43,13 @@ export async function collectResults(
   if (runResult.resultsFile) {
     try {
       const client = new DefaultArtifactClient()
+      const files = [runResult.resultsFile]
+      if (runResult.otelMetricsFile) {
+        files.push(runResult.otelMetricsFile)
+      }
       const { id } = await client.uploadArtifact(
         artifactName,
-        [runResult.resultsFile],
+        files,
         path.dirname(runResult.resultsFile)
       )
       artifactId = id ?? undefined

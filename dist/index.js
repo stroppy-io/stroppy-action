@@ -121495,7 +121495,11 @@ async function collectResults(config, runResult, artifactName, version) {
     if (runResult.resultsFile) {
         try {
             const client = new DefaultArtifactClient();
-            const { id } = await client.uploadArtifact(artifactName, [runResult.resultsFile], path$2.dirname(runResult.resultsFile));
+            const files = [runResult.resultsFile];
+            if (runResult.otelMetricsFile) {
+                files.push(runResult.otelMetricsFile);
+            }
+            const { id } = await client.uploadArtifact(artifactName, files, path$2.dirname(runResult.resultsFile));
             artifactId = id ?? undefined;
             if (artifactId) {
                 setOutput('artifact-id', artifactId.toString());
