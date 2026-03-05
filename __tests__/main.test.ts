@@ -5,6 +5,10 @@ const mockInstallStroppy = jest.fn<() => Promise<string>>()
 const mockRunStroppy =
   jest.fn<() => Promise<{ exitCode: number; resultsFile: string }>>()
 const mockCollectResults = jest.fn<() => Promise<void>>()
+const mockInstallOtelCol = jest.fn<() => Promise<void>>()
+const mockStartOtelCol =
+  jest.fn<() => Promise<{ configPath: string; metricsFile: string }>>()
+const mockStopOtelCol = jest.fn<() => Promise<void>>()
 
 jest.unstable_mockModule('@actions/core', () => core)
 jest.unstable_mockModule('../src/install.js', () => ({
@@ -16,6 +20,13 @@ jest.unstable_mockModule('../src/run.js', () => ({
 }))
 jest.unstable_mockModule('../src/results.js', () => ({
   collectResults: mockCollectResults
+}))
+jest.unstable_mockModule('../src/otel.js', () => ({
+  installOtelCol: mockInstallOtelCol,
+  startOtelCol: mockStartOtelCol,
+  stopOtelCol: mockStopOtelCol,
+  parseOtelMetrics: jest.fn().mockReturnValue([]),
+  buildMermaidChart: jest.fn().mockReturnValue('')
 }))
 
 const { run } = await import('../src/main.js')
@@ -38,12 +49,19 @@ describe('main.ts', () => {
         vus: '2',
         'log-level': 'info',
         'k6-args': '',
-        'artifact-name': 'stroppy-results'
+        'artifact-name': 'stroppy-results',
+        metrics: 'true'
       }
       return inputs[name] ?? ''
     })
 
     mockInstallStroppy.mockResolvedValue('v1.0.0')
+    mockInstallOtelCol.mockResolvedValue(undefined)
+    mockStartOtelCol.mockResolvedValue({
+      configPath: '/tmp/otel-config.yaml',
+      metricsFile: '/tmp/otel-metrics.json'
+    })
+    mockStopOtelCol.mockResolvedValue(undefined)
     mockRunStroppy.mockResolvedValue({
       exitCode: 0,
       resultsFile: '/tmp/r.json'
@@ -133,5 +151,43 @@ describe('main.ts', () => {
     await run()
 
     expect(core.setFailed).toHaveBeenCalledWith('download failed')
+  })
+
+  it('installs and starts otel collector when metrics enabled', async () => {
+    await run()
+
+    expect(mockInstallOtelCol).toHaveBeenCalled()
+    expect(mockStartOtelCol).toHaveBeenCalled()
+    expect(mockRunStroppy).toHaveBeenCalledWith(
+      expect.objectContaining({ otel: true })
+    )
+    expect(mockStopOtelCol).toHaveBeenCalled()
+  })
+
+  it('skips otel when metrics disabled', async () => {
+    core.getInput.mockImplementation((name: string) => {
+      if (name === 'metrics') return 'false'
+      if (name === 'script') return 'bench.ts'
+      if (name === 'driver-url') return 'postgres://localhost/test'
+      if (name === 'artifact-name') return 'stroppy-results'
+      return ''
+    })
+
+    await run()
+
+    expect(mockInstallOtelCol).not.toHaveBeenCalled()
+    expect(mockStartOtelCol).not.toHaveBeenCalled()
+    expect(mockRunStroppy).toHaveBeenCalledWith(
+      expect.objectContaining({ otel: false })
+    )
+    expect(mockStopOtelCol).not.toHaveBeenCalled()
+  })
+
+  it('stops otel collector even when benchmark fails', async () => {
+    mockRunStroppy.mockResolvedValue({ exitCode: 1, resultsFile: '' })
+
+    await run()
+
+    expect(mockStopOtelCol).toHaveBeenCalled()
   })
 })

@@ -3,8 +3,11 @@ import { installStroppy } from './install.js'
 import { runStroppy, VALID_PRESETS } from './run.js'
 import type { RunConfig } from './run.js'
 import { collectResults } from './results.js'
+import { installOtelCol, startOtelCol, stopOtelCol } from './otel.js'
 
 export async function run(): Promise<void> {
+  let otelStarted = false
+
   try {
     const version = core.getInput('version')
     const script = core.getInput('script')
@@ -17,6 +20,7 @@ export async function run(): Promise<void> {
     const logLevel = core.getInput('log-level')
     const k6Args = core.getInput('k6-args')
     const artifactName = core.getInput('artifact-name')
+    const metricsEnabled = core.getInput('metrics') !== 'false'
 
     if (!script && !preset) {
       throw new Error('Either "script" or "preset" input must be provided')
@@ -37,6 +41,16 @@ export async function run(): Promise<void> {
       installStroppy(version)
     )
 
+    if (metricsEnabled) {
+      await core.group('Install OpenTelemetry Collector', () =>
+        installOtelCol()
+      )
+      await core.group('Start OpenTelemetry Collector', () =>
+        startOtelCol('/tmp/otel-metrics.json')
+      )
+      otelStarted = true
+    }
+
     const config: RunConfig = {
       script,
       sqlFile,
@@ -46,10 +60,17 @@ export async function run(): Promise<void> {
       duration,
       vus,
       logLevel,
-      k6Args
+      k6Args,
+      otel: metricsEnabled
     }
 
+    const otelMetricsFile = '/tmp/otel-metrics.json'
     const result = await core.group('Run benchmark', () => runStroppy(config))
+
+    if (otelStarted) {
+      await core.group('Stop OpenTelemetry Collector', () => stopOtelCol())
+      result.otelMetricsFile = otelMetricsFile
+    }
 
     await core.group('Collect results', () =>
       collectResults(config, result, artifactName, resolvedVersion)
@@ -59,6 +80,13 @@ export async function run(): Promise<void> {
       core.setFailed(`Benchmark exited with code ${result.exitCode}`)
     }
   } catch (error) {
+    if (otelStarted) {
+      try {
+        await stopOtelCol()
+      } catch {
+        // best effort
+      }
+    }
     if (error instanceof Error) core.setFailed(error.message)
   }
 }

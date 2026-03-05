@@ -56,6 +56,12 @@ inputs:
     description: Name for the uploaded results artifact
     required: false
     default: 'stroppy-results'
+  metrics:
+    description: >-
+      Enable OpenTelemetry metrics collection with time-series charts in the
+      job summary. Set to "false" to disable.
+    required: false
+    default: 'true'
 
 outputs:
   exit-code:

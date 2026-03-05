@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as fs from 'node:fs'
 import * as exec from '@actions/exec'
 import * as io from '@actions/io'
+import { buildOtelEnv } from './otel.js'
 
 export const VALID_PRESETS = [
   'tpcb',
@@ -24,20 +25,30 @@ export interface RunConfig {
   vus: string
   logLevel: string
   k6Args: string
+  otel: boolean
 }
 
 export interface RunResult {
   exitCode: number
   resultsFile: string
+  otelMetricsFile?: string
 }
 
-export function buildK6Args(k6Args: string, resultsFile: string): string[] {
+export function buildK6Args(
+  k6Args: string,
+  resultsFile: string,
+  otel: boolean = false
+): string[] {
   const args: string[] = [
     '--summary-mode',
     'full',
     '--summary-export',
     resultsFile
   ]
+
+  if (otel) {
+    args.push('--out', 'experimental-opentelemetry')
+  }
 
   if (k6Args) {
     args.push(...k6Args.split(/\s+/).filter(Boolean))
@@ -63,13 +74,16 @@ export function buildEnv(config: RunConfig): Record<string, string> {
   if (config.vus) {
     env.VUS = config.vus
   }
+  if (config.otel) {
+    Object.assign(env, buildOtelEnv())
+  }
 
   return env
 }
 
 export async function runStroppy(config: RunConfig): Promise<RunResult> {
   const resultsFile = path.join(os.tmpdir(), 'stroppy-results.json')
-  const k6args = buildK6Args(config.k6Args, resultsFile)
+  const k6args = buildK6Args(config.k6Args, resultsFile, config.otel)
   const env = buildEnv(config)
 
   let exitCode: number

@@ -11,8 +11,15 @@ import type { RunConfig } from '../src/run.js'
 
 jest.unstable_mockModule('@actions/core', () => core)
 jest.unstable_mockModule('@actions/artifact', () => ({ DefaultArtifactClient }))
+jest.unstable_mockModule('../src/otel.js', () => ({
+  parseOtelMetrics: jest.fn(),
+  buildMermaidChart: jest.fn().mockReturnValue('')
+}))
 
 const { collectResults } = await import('../src/results.js')
+const otel = await import('../src/otel.js')
+const mockParseOtelMetrics = otel.parseOtelMetrics as jest.Mock
+const mockBuildMermaidChart = otel.buildMermaidChart as jest.Mock
 
 const baseConfig: RunConfig = {
   script: '',
@@ -23,7 +30,8 @@ const baseConfig: RunConfig = {
   duration: '10s',
   vus: '2',
   logLevel: 'info',
-  k6Args: ''
+  k6Args: '',
+  otel: false
 }
 
 describe('results.ts', () => {
@@ -146,6 +154,46 @@ describe('results.ts', () => {
     expect(core.summary.addHeading).toHaveBeenCalledWith('Latency (ms)', 3)
     expect(core.summary.addHeading).toHaveBeenCalledWith('Other', 3)
     expect(core.summary.write).toHaveBeenCalled()
+
+    fs.unlinkSync(tmpFile)
+  })
+
+  it('renders mermaid charts when otel metrics file exists', async () => {
+    const tmpFile = path.join(os.tmpdir(), 'test-summary-otel.json')
+    fs.writeFileSync(tmpFile, '{"metrics": {}}')
+
+    mockUploadArtifact.mockResolvedValueOnce({ id: 10, size: 50 })
+    mockParseOtelMetrics.mockReturnValue([
+      {
+        name: 'k6_http_reqs',
+        type: 'sum',
+        dataPoints: [
+          { timeUnixNano: '1700000000000000000', value: 100 },
+          { timeUnixNano: '1700000005000000000', value: 200 }
+        ]
+      }
+    ])
+    mockBuildMermaidChart.mockReturnValue('```mermaid\nxychart-beta\n```\n')
+
+    const otelConfig = { ...baseConfig, otel: true }
+
+    await collectResults(
+      otelConfig,
+      {
+        exitCode: 0,
+        resultsFile: tmpFile,
+        otelMetricsFile: '/tmp/otel-metrics.json'
+      },
+      'stroppy-results',
+      'v1.0.0'
+    )
+
+    expect(mockParseOtelMetrics).toHaveBeenCalledWith('/tmp/otel-metrics.json')
+    expect(mockBuildMermaidChart).toHaveBeenCalled()
+    expect(core.summary.addRaw).toHaveBeenCalledWith(
+      expect.stringContaining('mermaid'),
+      true
+    )
 
     fs.unlinkSync(tmpFile)
   })

@@ -3,6 +3,8 @@ import * as path from 'node:path'
 import * as core from '@actions/core'
 import { DefaultArtifactClient } from '@actions/artifact'
 import type { RunConfig, RunResult } from './run.js'
+import { parseOtelMetrics, buildMermaidChart } from './otel.js'
+import type { OtelMetric } from './otel.js'
 
 interface MetricValue {
   count?: number
@@ -93,6 +95,13 @@ async function writeSummary(
     const data = readResults(runResult.resultsFile)
     if (data?.metrics) {
       writeMetricsTables(data.metrics)
+    }
+  }
+
+  if (runResult.otelMetricsFile) {
+    const otelMetrics = parseOtelMetrics(runResult.otelMetricsFile)
+    if (otelMetrics.length > 0) {
+      writeOtelCharts(otelMetrics)
     }
   }
 
@@ -188,6 +197,42 @@ function writeMetricsTables(metrics: Record<string, MetricValue>): void {
       ],
       ...other
     ])
+  }
+}
+
+function writeOtelCharts(metrics: OtelMetric[]): void {
+  core.summary.addHeading('Time Series', 3)
+
+  for (const metric of metrics) {
+    if (metric.dataPoints.length < 2) continue
+
+    const sorted = [...metric.dataPoints].sort((a, b) =>
+      a.timeUnixNano.localeCompare(b.timeUnixNano)
+    )
+    const startNano = BigInt(sorted[0].timeUnixNano)
+
+    const labels = sorted.map((dp) => {
+      const offsetSec = Number(
+        (BigInt(dp.timeUnixNano) - startNano) / 1000000000n
+      )
+      const min = Math.floor(offsetSec / 60)
+      const sec = offsetSec % 60
+      return `${min}:${sec.toString().padStart(2, '0')}`
+    })
+
+    const values = sorted.map((dp) => {
+      if (metric.type === 'histogram' && dp.count && dp.sum) {
+        return dp.sum / dp.count // avg
+      }
+      return dp.value ?? 0
+    })
+
+    const yLabel =
+      metric.type === 'histogram' ? 'ms' : metric.type === 'sum' ? 'count' : ''
+    const chart = buildMermaidChart(metric.name, labels, values, yLabel)
+    if (chart) {
+      core.summary.addRaw(chart, true)
+    }
   }
 }
 

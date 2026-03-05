@@ -45,6 +45,7 @@ import * as os$1 from 'node:os';
 import os__default$1, { EOL as EOL$2 } from 'node:os';
 import * as fs$1 from 'node:fs';
 import fs__default from 'node:fs';
+import { spawn } from 'node:child_process';
 import require$$0$e, { Buffer as Buffer$1 } from 'buffer';
 import process$2 from 'node:process';
 import https$1 from 'node:https';
@@ -33120,6 +33121,9 @@ function cacheDir(sourceDir, tool, version, arch) {
  * @param arch          optional arch.  defaults to arch of computer
  */
 function find(toolName, versionSpec, arch) {
+    if (!toolName) {
+        throw new Error('toolName parameter is required');
+    }
     if (!versionSpec) {
         throw new Error('versionSpec parameter is required');
     }
@@ -33302,6 +33306,162 @@ async function installStroppy(version) {
     return tag;
 }
 
+const OTEL_TOOL = 'otelcol-contrib';
+const OTEL_VERSION = '0.123.0';
+const OTEL_RELEASES = 'open-telemetry/opentelemetry-collector-releases';
+const OTEL_PORT = 4318;
+function buildOtelConfig(metricsFile) {
+    return `receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:${OTEL_PORT}
+
+exporters:
+  file/metrics:
+    path: ${metricsFile}
+    format: json
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      exporters: [file/metrics]
+`;
+}
+function buildOtelEnv() {
+    return {
+        K6_OTEL_EXPORTER_TYPE: 'http',
+        K6_OTEL_HTTP_EXPORTER_INSECURE: 'true',
+        K6_OTEL_HTTP_EXPORTER_ENDPOINT: `localhost:${OTEL_PORT}`,
+        K6_OTEL_HTTP_EXPORTER_URL_PATH: '/v1/metrics',
+        K6_OTEL_METRIC_PREFIX: 'k6_',
+        K6_OTEL_SERVICE_NAME: 'stroppy'
+    };
+}
+function parseOtelMetrics(filePath) {
+    if (!fs$1.existsSync(filePath))
+        return [];
+    const content = fs$1.readFileSync(filePath, 'utf-8').trim();
+    if (!content)
+        return [];
+    const metricsMap = new Map();
+    for (const line of content.split('\n')) {
+        if (!line.trim())
+            continue;
+        let parsed;
+        try {
+            parsed = JSON.parse(line);
+        }
+        catch {
+            continue;
+        }
+        for (const rm of parsed.resourceMetrics ?? []) {
+            for (const sm of rm.scopeMetrics ?? []) {
+                for (const m of sm.metrics ?? []) {
+                    if (!m.name)
+                        continue;
+                    processMetric(m, metricsMap);
+                }
+            }
+        }
+    }
+    return Array.from(metricsMap.values());
+}
+function processMetric(m, metricsMap) {
+    const name = m.name;
+    if (m.gauge?.dataPoints) {
+        const existing = getOrCreate(metricsMap, name, 'gauge');
+        for (const dp of m.gauge.dataPoints) {
+            existing.dataPoints.push({
+                timeUnixNano: dp.timeUnixNano ?? '0',
+                value: dp.asDouble ?? Number(dp.asInt ?? 0)
+            });
+        }
+    }
+    else if (m.sum?.dataPoints) {
+        const existing = getOrCreate(metricsMap, name, 'sum');
+        for (const dp of m.sum.dataPoints) {
+            existing.dataPoints.push({
+                timeUnixNano: dp.timeUnixNano ?? '0',
+                value: dp.asDouble ?? Number(dp.asInt ?? 0)
+            });
+        }
+    }
+    else if (m.histogram?.dataPoints) {
+        const existing = getOrCreate(metricsMap, name, 'histogram');
+        for (const dp of m.histogram.dataPoints) {
+            existing.dataPoints.push({
+                timeUnixNano: dp.timeUnixNano ?? '0',
+                sum: dp.sum,
+                count: Number(dp.count ?? 0),
+                min: dp.min,
+                max: dp.max
+            });
+        }
+    }
+}
+function getOrCreate(map, name, type) {
+    let metric = map.get(name);
+    if (!metric) {
+        metric = { name, type, dataPoints: [] };
+        map.set(name, metric);
+    }
+    return metric;
+}
+async function startOtelCol(metricsFile) {
+    const configPath = path$2.join(os$1.tmpdir(), 'otel-config.yaml');
+    const config = buildOtelConfig(metricsFile);
+    fs$1.writeFileSync(configPath, config);
+    info('Starting otelcol-contrib in background');
+    const child = spawn('otelcol-contrib', ['--config', configPath], {
+        detached: true,
+        stdio: 'ignore'
+    });
+    child.unref();
+    // Wait briefly for the process to start
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return { configPath, metricsFile };
+}
+async function stopOtelCol() {
+    info('Stopping otelcol-contrib');
+    await exec('pkill', ['-f', 'otelcol-contrib'], {
+        ignoreReturnCode: true
+    });
+}
+function buildMermaidChart(title, labels, values, yLabel) {
+    if (labels.length === 0)
+        return '';
+    const xItems = labels.map((l) => `"${l}"`).join(', ');
+    const yItems = values.map((v) => v.toFixed(1)).join(', ');
+    const yAxis = yLabel ? `  y-axis "${yLabel}"` : '  y-axis "value"';
+    return [
+        '```mermaid',
+        'xychart-beta',
+        `  title "${title}"`,
+        `  x-axis [${xItems}]`,
+        yAxis,
+        `  line [${yItems}]`,
+        '```\n'
+    ].join('\n');
+}
+async function installOtelCol() {
+    const semver = OTEL_VERSION;
+    info(`Installing ${OTEL_TOOL} ${semver}`);
+    let cachedDir = find(OTEL_TOOL, semver);
+    if (cachedDir) {
+        info(`Found ${OTEL_TOOL} ${semver} in tool cache`);
+    }
+    else {
+        const url = `https://github.com/${OTEL_RELEASES}/releases/download/v${semver}/otelcol-contrib_${semver}_linux_amd64.tar.gz`;
+        info(`Downloading otelcol-contrib from ${url}`);
+        const downloadPath = await downloadTool(url);
+        const extractedDir = await extractTar(downloadPath);
+        cachedDir = await cacheDir(extractedDir, OTEL_TOOL, semver);
+    }
+    addPath(cachedDir);
+}
+
 const VALID_PRESETS = [
     'tpcb',
     'tpcc',
@@ -33309,13 +33469,16 @@ const VALID_PRESETS = [
     'simple',
     'execute_sql'
 ];
-function buildK6Args(k6Args, resultsFile) {
+function buildK6Args(k6Args, resultsFile, otel = false) {
     const args = [
         '--summary-mode',
         'full',
         '--summary-export',
         resultsFile
     ];
+    if (otel) {
+        args.push('--out', 'experimental-opentelemetry');
+    }
     if (k6Args) {
         args.push(...k6Args.split(/\s+/).filter(Boolean));
     }
@@ -33337,11 +33500,14 @@ function buildEnv(config) {
     if (config.vus) {
         env.VUS = config.vus;
     }
+    if (config.otel) {
+        Object.assign(env, buildOtelEnv());
+    }
     return env;
 }
 async function runStroppy(config) {
     const resultsFile = path$2.join(os$1.tmpdir(), 'stroppy-results.json');
-    const k6args = buildK6Args(config.k6Args, resultsFile);
+    const k6args = buildK6Args(config.k6Args, resultsFile, config.otel);
     const env = buildEnv(config);
     let exitCode;
     if (config.script) {
@@ -121368,6 +121534,12 @@ async function writeSummary(config, runResult, version, artifactId) {
             writeMetricsTables(data.metrics);
         }
     }
+    if (runResult.otelMetricsFile) {
+        const otelMetrics = parseOtelMetrics(runResult.otelMetricsFile);
+        if (otelMetrics.length > 0) {
+            writeOtelCharts(otelMetrics);
+        }
+    }
     if (artifactId) {
         const runUrl = artifactDownloadUrl();
         summary.addSeparator();
@@ -121454,6 +121626,32 @@ function writeMetricsTables(metrics) {
         ]);
     }
 }
+function writeOtelCharts(metrics) {
+    summary.addHeading('Time Series', 3);
+    for (const metric of metrics) {
+        if (metric.dataPoints.length < 2)
+            continue;
+        const sorted = [...metric.dataPoints].sort((a, b) => a.timeUnixNano.localeCompare(b.timeUnixNano));
+        const startNano = BigInt(sorted[0].timeUnixNano);
+        const labels = sorted.map((dp) => {
+            const offsetSec = Number((BigInt(dp.timeUnixNano) - startNano) / 1000000000n);
+            const min = Math.floor(offsetSec / 60);
+            const sec = offsetSec % 60;
+            return `${min}:${sec.toString().padStart(2, '0')}`;
+        });
+        const values = sorted.map((dp) => {
+            if (metric.type === 'histogram' && dp.count && dp.sum) {
+                return dp.sum / dp.count; // avg
+            }
+            return dp.value ?? 0;
+        });
+        const yLabel = metric.type === 'histogram' ? 'ms' : metric.type === 'sum' ? 'count' : '';
+        const chart = buildMermaidChart(metric.name, labels, values, yLabel);
+        if (chart) {
+            summary.addRaw(chart, true);
+        }
+    }
+}
 function isDuration(m) {
     return m.avg !== undefined && m.med !== undefined;
 }
@@ -121512,6 +121710,7 @@ function readResults(filePath) {
 }
 
 async function run() {
+    let otelStarted = false;
     try {
         const version = getInput('version');
         const script = getInput('script');
@@ -121524,6 +121723,7 @@ async function run() {
         const logLevel = getInput('log-level');
         const k6Args = getInput('k6-args');
         const artifactName = getInput('artifact-name');
+        const metricsEnabled = getInput('metrics') !== 'false';
         if (!script && !preset) {
             throw new Error('Either "script" or "preset" input must be provided');
         }
@@ -121535,6 +121735,11 @@ async function run() {
             throw new Error(`Invalid preset "${preset}". Valid presets: ${VALID_PRESETS.join(', ')}`);
         }
         const resolvedVersion = await group('Install stroppy', () => installStroppy(version));
+        if (metricsEnabled) {
+            await group('Install OpenTelemetry Collector', () => installOtelCol());
+            await group('Start OpenTelemetry Collector', () => startOtelCol('/tmp/otel-metrics.json'));
+            otelStarted = true;
+        }
         const config = {
             script,
             sqlFile,
@@ -121544,15 +121749,29 @@ async function run() {
             duration,
             vus,
             logLevel,
-            k6Args
+            k6Args,
+            otel: metricsEnabled
         };
+        const otelMetricsFile = '/tmp/otel-metrics.json';
         const result = await group('Run benchmark', () => runStroppy(config));
+        if (otelStarted) {
+            await group('Stop OpenTelemetry Collector', () => stopOtelCol());
+            result.otelMetricsFile = otelMetricsFile;
+        }
         await group('Collect results', () => collectResults(config, result, artifactName, resolvedVersion));
         if (result.exitCode !== 0) {
             setFailed(`Benchmark exited with code ${result.exitCode}`);
         }
     }
     catch (error) {
+        if (otelStarted) {
+            try {
+                await stopOtelCol();
+            }
+            catch {
+                // best effort
+            }
+        }
         if (error instanceof Error)
             setFailed(error.message);
     }
