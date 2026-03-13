@@ -33334,8 +33334,11 @@ function buildEnv(config) {
     if (config.duration) {
         env.DURATION = config.duration;
     }
-    if (config.vus) {
-        env.VUS = config.vus;
+    if (config.vusScale) {
+        env.VUS_SCALE = config.vusScale;
+    }
+    if (config.poolSize) {
+        env.POOL_SIZE = config.poolSize;
     }
     return env;
 }
@@ -121359,7 +121362,8 @@ async function writeSummary(config, runResult, version, artifactId) {
         ['Stroppy version', version],
         ['Driver URL', maskUrl(config.driverUrl)],
         ...(config.duration ? [['Duration', config.duration]] : []),
-        ...(config.vus ? [['VUs', config.vus]] : []),
+        ...(config.vusScale ? [['VU scale', config.vusScale]] : []),
+        ...(config.poolSize ? [['Pool size', config.poolSize]] : []),
         ...(config.scaleFactor ? [['Scale factor', config.scaleFactor]] : [])
     ]);
     if (runResult.resultsFile) {
@@ -121520,7 +121524,8 @@ async function run() {
         const driverUrl = getInput('driver-url', { required: true });
         const scaleFactor = getInput('scale-factor');
         const duration = getInput('duration');
-        const vus = getInput('vus');
+        const vusScale = getInput('vus-scale');
+        const poolSize = getInput('pool-size');
         const logLevel = getInput('log-level');
         const k6Args = getInput('k6-args');
         const artifactName = getInput('artifact-name');
@@ -121542,7 +121547,8 @@ async function run() {
             driverUrl,
             scaleFactor,
             duration,
-            vus,
+            vusScale,
+            poolSize,
             logLevel,
             k6Args
         };
