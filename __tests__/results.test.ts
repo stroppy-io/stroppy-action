@@ -21,7 +21,8 @@ const baseConfig: RunConfig = {
   driverUrl: 'postgres://user:pass@localhost/test',
   scaleFactor: '',
   duration: '10s',
-  vus: '2',
+  vusScale: '',
+  poolSize: '',
   logLevel: 'info',
   k6Args: ''
 }

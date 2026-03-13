@@ -21,7 +21,8 @@ export interface RunConfig {
   driverUrl: string
   scaleFactor: string
   duration: string
-  vus: string
+  vusScale: string
+  poolSize: string
   logLevel: string
   k6Args: string
 }
@@ -60,8 +61,11 @@ export function buildEnv(config: RunConfig): Record<string, string> {
   if (config.duration) {
     env.DURATION = config.duration
   }
-  if (config.vus) {
-    env.VUS = config.vus
+  if (config.vusScale) {
+    env.VUS_SCALE = config.vusScale
+  }
+  if (config.poolSize) {
+    env.POOL_SIZE = config.poolSize
   }
 
   return env

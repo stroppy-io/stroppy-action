@@ -70,7 +70,9 @@ describe('run.ts', () => {
         driverUrl: 'postgres://localhost/test',
         scaleFactor: '',
         duration: '',
-        vus: '',
+
+        vusScale: '',
+        poolSize: '',
         logLevel: 'info',
         k6Args: ''
       })
@@ -79,7 +81,8 @@ describe('run.ts', () => {
       expect(env.LOG_LEVEL).toBe('info')
       expect(env.LOG_MODE).toBe('development')
       expect(env.SCALE_FACTOR).toBeUndefined()
-      expect(env.VUS).toBeUndefined()
+      expect(env.VUS_SCALE).toBeUndefined()
+      expect(env.POOL_SIZE).toBeUndefined()
     })
 
     it('sets optional env vars when provided', () => {
@@ -90,14 +93,16 @@ describe('run.ts', () => {
         driverUrl: 'postgres://localhost/test',
         scaleFactor: '10',
         duration: '1h',
-        vus: '4',
+        vusScale: '0.5',
+        poolSize: '50',
         logLevel: 'debug',
         k6Args: ''
       })
 
       expect(env.SCALE_FACTOR).toBe('10')
       expect(env.DURATION).toBe('1h')
-      expect(env.VUS).toBe('4')
+      expect(env.VUS_SCALE).toBe('0.5')
+      expect(env.POOL_SIZE).toBe('50')
     })
   })
 
@@ -113,6 +118,8 @@ describe('run.ts', () => {
         scaleFactor: '',
         duration: '5m',
         vus: '2',
+        vusScale: '',
+        poolSize: '',
         logLevel: 'info',
         k6Args: ''
       })
@@ -137,7 +144,9 @@ describe('run.ts', () => {
         driverUrl: 'postgres://localhost/test',
         scaleFactor: '',
         duration: '',
-        vus: '',
+
+        vusScale: '',
+        poolSize: '',
         logLevel: 'info',
         k6Args: ''
       })
@@ -163,7 +172,9 @@ describe('run.ts', () => {
         driverUrl: 'postgres://localhost/test',
         scaleFactor: '',
         duration: '',
-        vus: '',
+
+        vusScale: '',
+        poolSize: '',
         logLevel: 'info',
         k6Args: ''
       })

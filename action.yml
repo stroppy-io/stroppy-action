@@ -40,8 +40,16 @@ inputs:
     description: 'Test duration (e.g. 1h, 30m)'
     required: false
     default: ''
-  vus:
-    description: Number of virtual users
+  vus-scale:
+    description: >-
+      VU scale multiplier for TPC-C (1 = 99 VUs, 0.5 ≈ 50, 0.1 ≈ 11).
+      Only used with the tpcc preset.
+    required: false
+    default: ''
+  pool-size:
+    description: >-
+      Connection pool size (max and min connections). Only used by scripts
+      that read the POOL_SIZE env var.
     required: false
     default: ''
   log-level:

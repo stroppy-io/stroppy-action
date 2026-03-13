@@ -85,7 +85,8 @@ async function writeSummary(
     ['Stroppy version', version],
     ['Driver URL', maskUrl(config.driverUrl)],
     ...(config.duration ? [['Duration', config.duration]] : []),
-    ...(config.vus ? [['VUs', config.vus]] : []),
+    ...(config.vusScale ? [['VU scale', config.vusScale]] : []),
+    ...(config.poolSize ? [['Pool size', config.poolSize]] : []),
     ...(config.scaleFactor ? [['Scale factor', config.scaleFactor]] : [])
   ])
 

@@ -13,7 +13,8 @@ export async function run(): Promise<void> {
     const driverUrl = core.getInput('driver-url', { required: true })
     const scaleFactor = core.getInput('scale-factor')
     const duration = core.getInput('duration')
-    const vus = core.getInput('vus')
+    const vusScale = core.getInput('vus-scale')
+    const poolSize = core.getInput('pool-size')
     const logLevel = core.getInput('log-level')
     const k6Args = core.getInput('k6-args')
     const artifactName = core.getInput('artifact-name')
@@ -44,7 +45,8 @@ export async function run(): Promise<void> {
       driverUrl,
       scaleFactor,
       duration,
-      vus,
+      vusScale,
+      poolSize,
       logLevel,
       k6Args
     }
