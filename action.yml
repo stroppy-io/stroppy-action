@@ -56,8 +56,12 @@ inputs:
     description: 'Log level: debug, info, warn, error'
     required: false
     default: 'info'
+  stroppy-args:
+    description: Additional stroppy CLI arguments (passed before --)
+    required: false
+    default: ''
   k6-args:
-    description: Additional k6 CLI arguments
+    description: Additional k6 CLI arguments (passed after --)
     required: false
     default: ''
   artifact-name:
