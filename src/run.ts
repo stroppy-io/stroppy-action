@@ -24,6 +24,7 @@ export interface RunConfig {
   duration: string
   vus: string
   logLevel: string
+  stroppyArgs: string
   k6Args: string
   otel: boolean
 }
@@ -88,11 +89,16 @@ export async function runStroppy(config: RunConfig): Promise<RunResult> {
 
   let exitCode: number
 
+  const stroppyArgs = config.stroppyArgs
+    ? config.stroppyArgs.split(/\s+/).filter(Boolean)
+    : []
+
   if (config.script) {
     const args = ['run', config.script]
     if (config.sqlFile) {
       args.push(config.sqlFile)
     }
+    args.push(...stroppyArgs)
     if (k6args.length > 0) {
       args.push('--', ...k6args)
     }
@@ -118,6 +124,7 @@ export async function runStroppy(config: RunConfig): Promise<RunResult> {
     if (fs.existsSync(sqlPath)) {
       args.push(sqlPath)
     }
+    args.push(...stroppyArgs)
     if (k6args.length > 0) {
       args.push('--', ...k6args)
     }

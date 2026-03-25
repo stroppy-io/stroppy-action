@@ -18,6 +18,7 @@ export async function run(): Promise<void> {
     const duration = core.getInput('duration')
     const vus = core.getInput('vus')
     const logLevel = core.getInput('log-level')
+    const stroppyArgs = core.getInput('stroppy-args')
     const k6Args = core.getInput('k6-args')
     const artifactName = core.getInput('artifact-name')
     const metricsEnabled = core.getInput('metrics') !== 'false'
@@ -60,6 +61,7 @@ export async function run(): Promise<void> {
       duration,
       vus,
       logLevel,
+      stroppyArgs,
       k6Args,
       otel: metricsEnabled
     }

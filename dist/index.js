@@ -33510,11 +33510,15 @@ async function runStroppy(config) {
     const k6args = buildK6Args(config.k6Args, resultsFile, config.otel);
     const env = buildEnv(config);
     let exitCode;
+    const stroppyArgs = config.stroppyArgs
+        ? config.stroppyArgs.split(/\s+/).filter(Boolean)
+        : [];
     if (config.script) {
         const args = ['run', config.script];
         if (config.sqlFile) {
             args.push(config.sqlFile);
         }
+        args.push(...stroppyArgs);
         if (k6args.length > 0) {
             args.push('--', ...k6args);
         }
@@ -33533,6 +33537,7 @@ async function runStroppy(config) {
         if (fs$1.existsSync(sqlPath)) {
             args.push(sqlPath);
         }
+        args.push(...stroppyArgs);
         if (k6args.length > 0) {
             args.push('--', ...k6args);
         }
@@ -121725,6 +121730,7 @@ async function run() {
         const duration = getInput('duration');
         const vus = getInput('vus');
         const logLevel = getInput('log-level');
+        const stroppyArgs = getInput('stroppy-args');
         const k6Args = getInput('k6-args');
         const artifactName = getInput('artifact-name');
         const metricsEnabled = getInput('metrics') !== 'false';
@@ -121753,6 +121759,7 @@ async function run() {
             duration,
             vus,
             logLevel,
+            stroppyArgs,
             k6Args,
             otel: metricsEnabled
         };
