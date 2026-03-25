@@ -16,6 +16,7 @@ export async function run(): Promise<void> {
     const vusScale = core.getInput('vus-scale')
     const poolSize = core.getInput('pool-size')
     const logLevel = core.getInput('log-level')
+    const stroppyArgs = core.getInput('stroppy-args')
     const k6Args = core.getInput('k6-args')
     const artifactName = core.getInput('artifact-name')
 
@@ -48,6 +49,7 @@ export async function run(): Promise<void> {
       vusScale,
       poolSize,
       logLevel,
+      stroppyArgs,
       k6Args
     }
 

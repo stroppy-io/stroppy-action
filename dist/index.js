@@ -33346,12 +33346,16 @@ async function runStroppy(config) {
     const resultsFile = path$2.join(os$1.tmpdir(), 'stroppy-results.json');
     const k6args = buildK6Args(config.k6Args, resultsFile);
     const env = buildEnv(config);
+    const stroppyArgs = config.stroppyArgs
+        ? config.stroppyArgs.split(/\s+/).filter(Boolean)
+        : [];
     let exitCode;
     if (config.script) {
         const args = ['run', config.script];
         if (config.sqlFile) {
             args.push(config.sqlFile);
         }
+        args.push(...stroppyArgs);
         if (k6args.length > 0) {
             args.push('--', ...k6args);
         }
@@ -33370,6 +33374,7 @@ async function runStroppy(config) {
         if (fs$1.existsSync(sqlPath)) {
             args.push(sqlPath);
         }
+        args.push(...stroppyArgs);
         if (k6args.length > 0) {
             args.push('--', ...k6args);
         }
@@ -121527,6 +121532,7 @@ async function run() {
         const vusScale = getInput('vus-scale');
         const poolSize = getInput('pool-size');
         const logLevel = getInput('log-level');
+        const stroppyArgs = getInput('stroppy-args');
         const k6Args = getInput('k6-args');
         const artifactName = getInput('artifact-name');
         if (!script && !preset) {
@@ -121550,6 +121556,7 @@ async function run() {
             vusScale,
             poolSize,
             logLevel,
+            stroppyArgs,
             k6Args
         };
         const result = await group('Run benchmark', () => runStroppy(config));
