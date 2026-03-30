@@ -42,6 +42,42 @@ describe('install.ts', () => {
         'Failed to resolve latest stroppy version'
       )
     })
+
+    it('resolves major-only version to latest matching release', async () => {
+      mockGetJson.mockResolvedValueOnce({
+        result: [
+          { tag_name: 'v4.1.0' },
+          { tag_name: 'v4.0.0' },
+          { tag_name: 'v3.1.0' }
+        ]
+      })
+
+      const tag = await resolveVersion('4')
+      expect(tag).toBe('v4.1.0')
+    })
+
+    it('resolves major.minor version to latest matching release', async () => {
+      mockGetJson.mockResolvedValueOnce({
+        result: [
+          { tag_name: 'v4.1.2' },
+          { tag_name: 'v4.1.1' },
+          { tag_name: 'v4.0.0' }
+        ]
+      })
+
+      const tag = await resolveVersion('v4.1')
+      expect(tag).toBe('v4.1.2')
+    })
+
+    it('throws when no release matches partial version', async () => {
+      mockGetJson.mockResolvedValueOnce({
+        result: [{ tag_name: 'v3.1.0' }, { tag_name: 'v3.0.0' }]
+      })
+
+      await expect(resolveVersion('4')).rejects.toThrow(
+        'No stroppy release found matching "4"'
+      )
+    })
   })
 
   describe('installStroppy', () => {

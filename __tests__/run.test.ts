@@ -130,7 +130,14 @@ describe('run.ts', () => {
       const [cmd, args] = execFixture.exec.mock.calls[0]
       expect(cmd).toBe('stroppy')
       expect(args).toEqual(
-        expect.arrayContaining(['run', 'bench.ts', 'schema.sql', '--'])
+        expect.arrayContaining([
+          'run',
+          'bench.ts',
+          'schema.sql',
+          '-D',
+          'url=postgres://localhost/test',
+          '--'
+        ])
       )
     })
 

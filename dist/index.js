@@ -33268,16 +33268,37 @@ function _getGlobal(key, defaultValue) {
 const TOOL_NAME = 'stroppy';
 const REPO = 'stroppy-io/stroppy';
 async function resolveVersion(version) {
-    if (version !== 'latest') {
-        return version.startsWith('v') ? version : `v${version}`;
+    if (version === 'latest') {
+        const http = new HttpClient('stroppy-action');
+        const url = `https://api.github.com/repos/${REPO}/releases/latest`;
+        const res = await http.getJson(url);
+        if (!res.result?.tag_name) {
+            throw new Error('Failed to resolve latest stroppy version');
+        }
+        return res.result.tag_name;
     }
+    const bare = version.replace(/^v/, '');
+    const parts = bare.split('.');
+    // Exact version (e.g. "4.0.0" or "v4.0.0") — return as-is
+    if (parts.length === 3) {
+        return `v${bare}`;
+    }
+    // Partial version (e.g. "4" or "4.1") — find latest matching release
+    const prefix = `v${bare}.`;
     const http = new HttpClient('stroppy-action');
-    const url = `https://api.github.com/repos/${REPO}/releases/latest`;
+    const url = `https://api.github.com/repos/${REPO}/releases?per_page=100`;
     const res = await http.getJson(url);
-    if (!res.result?.tag_name) {
-        throw new Error('Failed to resolve latest stroppy version');
+    if (!res.result) {
+        throw new Error('Failed to fetch stroppy releases');
     }
-    return res.result.tag_name;
+    const match = res.result.find((r) => r.tag_name === `v${bare}` || r.tag_name.startsWith(prefix));
+    if (!match) {
+        throw new Error(`No stroppy release found matching "${version}". Available: ${res.result
+            .slice(0, 5)
+            .map((r) => r.tag_name)
+            .join(', ')}`);
+    }
+    return match.tag_name;
 }
 async function installStroppy(version) {
     const tag = await resolveVersion(version);
@@ -33350,12 +33371,13 @@ async function runStroppy(config) {
         ? config.stroppyArgs.split(/\s+/).filter(Boolean)
         : [];
     let exitCode;
+    const driverArgs = config.driverUrl ? ['-D', `url=${config.driverUrl}`] : [];
     if (config.script) {
         const args = ['run', config.script];
         if (config.sqlFile) {
             args.push(config.sqlFile);
         }
-        args.push(...stroppyArgs);
+        args.push(...driverArgs, ...stroppyArgs);
         if (k6args.length > 0) {
             args.push('--', ...k6args);
         }
@@ -33374,7 +33396,7 @@ async function runStroppy(config) {
         if (fs$1.existsSync(sqlPath)) {
             args.push(sqlPath);
         }
-        args.push(...stroppyArgs);
+        args.push(...driverArgs, ...stroppyArgs);
         if (k6args.length > 0) {
             args.push('--', ...k6args);
         }

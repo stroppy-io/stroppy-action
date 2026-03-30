@@ -83,12 +83,14 @@ export async function runStroppy(config: RunConfig): Promise<RunResult> {
 
   let exitCode: number
 
+  const driverArgs = config.driverUrl ? ['-D', `url=${config.driverUrl}`] : []
+
   if (config.script) {
     const args = ['run', config.script]
     if (config.sqlFile) {
       args.push(config.sqlFile)
     }
-    args.push(...stroppyArgs)
+    args.push(...driverArgs, ...stroppyArgs)
     if (k6args.length > 0) {
       args.push('--', ...k6args)
     }
@@ -114,7 +116,7 @@ export async function runStroppy(config: RunConfig): Promise<RunResult> {
     if (fs.existsSync(sqlPath)) {
       args.push(sqlPath)
     }
-    args.push(...stroppyArgs)
+    args.push(...driverArgs, ...stroppyArgs)
     if (k6args.length > 0) {
       args.push('--', ...k6args)
     }
