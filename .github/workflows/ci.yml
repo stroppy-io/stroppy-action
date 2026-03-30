@@ -74,6 +74,7 @@ jobs:
         id: test-action
         uses: ./
         with:
+          version: '3'
           preset: tpcc
           driver-url: 'postgres://stroppy:stroppy@localhost:5432/stroppy_test'
 

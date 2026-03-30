@@ -12,7 +12,7 @@ inputs:
       Stroppy release tag to install (e.g. v1.2.3). Use "latest" to fetch the
       most recent release.
     required: false
-    default: 'latest'
+    default: '3'
   script:
     description: >-
       Path to a custom .ts benchmark script. Mutually exclusive with "preset".
